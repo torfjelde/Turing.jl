@@ -3,33 +3,13 @@
 ##############
 
 # VarInfo to Sample
-function Sample(vi::UntypedVarInfo)
-    value = Dict{Symbol, Any}() # value is named here because of Sample has a field called value
-    for vn in keys(vi)
-        value[sym(vn)] = vi[vn]
-    end
-
+function Sample(vi::AbstractVarInfo, weight = 0.0, init_zero = false)
     # NOTE: do we need to check if lp is 0?
-    value[:lp] = getlogp(vi)
-    Sample(0.0, value)
-end
-@generated function Sample(vi::TypedVarInfo{Tvis}) where Tvis
-    expr = quote
-        value = Dict{Symbol, Any}() # value is named here because of Sample has a field called value
-    end
-    for f in fieldnames(Tvis)
-        push!(expr.args, quote
-            for vn in keys(vi.vis.$f.idcs)
-                value[sym(vn)] = vi[vn]
-            end
-        end)
-    end
-    push!(expr.args, quote
-        # NOTE: do we need to check if lp is 0?
-        value[:lp] = getlogp(vi)
-        Sample(0.0, value)
-    end)
-    return expr
+    lp = init_zero ? 0.0 : getlogp(vi)
+    lf_eps, elapsed, epsilon = NaN, NaN, NaN
+    lf_num, eval_num = 0, 0
+
+    Sample(weight, lp, lf_eps, elapsed, epsilon, lf_num, eval_num, vi)
 end
 
 # VarInfo, combined with spl.info, to Sample
@@ -37,15 +17,15 @@ function Sample(vi::AbstractVarInfo, spl::Sampler)
     s = Sample(vi)
 
     if haskey(spl.info, :wum)
-        s.value[:epsilon] = getss(spl.info[:wum])
+        s.epsilon = getss(spl.info[:wum])
     end
 
     if haskey(spl.info, :lf_num)
-        s.value[:lf_num] = spl.info[:lf_num]
+        s.lf_num = spl.info[:lf_num]
     end
 
     if haskey(spl.info, :eval_num)
-        s.value[:eval_num] = spl.info[:eval_num]
+        s.eval_num = spl.info[:eval_num]
     end
 
     return s
@@ -53,16 +33,14 @@ end
 
 function sample(model, alg; kwargs...)
     spl = get_sampler(model, alg; kwargs...)
-    samples = init_samples(alg; kwargs...)
     vi = init_varinfo(model, spl; kwargs...)
+    samples = init_samples(alg, vi; kwargs...)
     _sample(vi, samples, spl, model, alg; kwargs...)
 end
 
-function init_samples(alg; kwargs...)
+function init_samples(alg, vi::AbstractVarInfo; kwargs...)
     n = get_sample_n(alg; kwargs...)
-    weight = 1 / n
-    samples = init_samples(n, weight)
-    return samples
+    return [Sample(vi, 1/n, true) for i in 1:n]
 end
 
 function get_sample_n(alg; reuse_spl_n = 0, kwargs...)
@@ -71,15 +49,6 @@ function get_sample_n(alg; reuse_spl_n = 0, kwargs...)
     else
         alg.n_iters
     end
-end
-
-function init_samples(sample_n, weight)
-    samples = Array{Sample}(undef, sample_n)
-    weight = 1 / sample_n
-    for i = 1:sample_n
-        samples[i] = Sample(weight, Dict{Symbol, Any}())
-    end
-    return samples
 end
 
 function get_sampler(model, alg; kwargs...)

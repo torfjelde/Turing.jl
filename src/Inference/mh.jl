@@ -65,7 +65,7 @@ function _sample(vi, samples, spl, model, alg::MH;
             samples[i] = samples[i - 1]
         end
 
-        samples[i].value[:elapsed] = time_elapsed
+        samples[i].elapsed = time_elapsed
         push!(accept_his, is_accept)
 
         PROGRESS[] && (ProgressMeter.next!(spl.info[:progress]))

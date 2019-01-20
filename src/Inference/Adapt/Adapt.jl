@@ -37,9 +37,9 @@ end
 
 abstract type CompositeAdapter <: AbstractAdapter end
 
-struct NaiveCompAdapter <: CompositeAdapter
-    pc  :: PreConditioner
-    ssa :: StepSizeAdapter
+struct NaiveCompAdapter{Tpc <: PreConditioner, Tssa <: StepSizeAdapter} <: CompositeAdapter
+    pc  :: Tpc
+    ssa :: Tssa
 end
 
 function getss(tp::CompositeAdapter)
@@ -47,12 +47,12 @@ function getss(tp::CompositeAdapter)
 end
 
 # Acknowledgement: this adaption settings is mimicing Stan's 3-phase adaptation.
-struct ThreePhaseAdapter{T<:Integer} <: CompositeAdapter
+struct ThreePhaseAdapter{T<:Integer, Tpc <: PreConditioner, Tssa <: StepSizeAdapter} <: CompositeAdapter
     n_adapts    :: T
     init_buffer :: T
     term_buffer :: T
-    pc          :: PreConditioner
-    ssa         :: StepSizeAdapter
+    pc          :: Tpc
+    ssa         :: Tssa
     state       :: ThreePhaseState{T}
 end
 

@@ -1,6 +1,6 @@
 struct DynamicNUTS{space} <: Hamiltonian
-    n_iters   ::  Integer   # number of samples
-    gid       ::  Integer   # group ID
+    n_iters   ::  Int   # number of samples
+    gid       ::  Int   # group ID
 end
 DynamicNUTS(n_iters, gid) = DynamicNUTS{()}(n_iters, gid)
 

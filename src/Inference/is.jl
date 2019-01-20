@@ -1,4 +1,6 @@
-init_samples(alg::IS; kwargs...) = Array{Sample}(undef, alg.n_particles)
+function init_samples(alg::IS, vi::AbstractVarInfo; kwargs...)
+    return Array{Sample{typeof(vi)}}(undef, alg.n_particles)
+end
 function init_varinfo(model, spl::Sampler{<:IS}; stable = true, kwargs...)
     if stable
         return TypedVarInfo(default_varinfo(model, spl))

@@ -48,13 +48,13 @@ function _sample(varInfo,
 
                     if ~spl.alg.thin
                         samples[i_thin].value = Sample(varInfo).value
-                        samples[i_thin].value[:elapsed] = time_elapsed_thin
+                        samples[i_thin].elapsed = time_elapsed_thin
                         if ~isa(local_spl.alg, Hamiltonian)
                             # If statement below is true if there is a HMC component which provides lp and epsilon
-                            if lp != nothing samples[i_thin].value[:lp] = lp end
-                            if epsilon != nothing samples[i_thin].value[:epsilon] = epsilon end
-                            if lf_num != nothing samples[i_thin].value[:lf_num] = lf_num end
-                            if eval_num != nothing samples[i_thin].value[:eval_num] = eval_num end
+                            if lp != nothing samples[i_thin].lp = lp end
+                            if epsilon != nothing samples[i_thin].epsilon = epsilon end
+                            if lf_num != nothing samples[i_thin].lf_num = lf_num end
+                            if eval_num != nothing samples[i_thin].eval_num = eval_num end
                         end
                         i_thin += 1
                     end
@@ -76,12 +76,12 @@ function _sample(varInfo,
 
         if spl.alg.thin
             samples[i].value = Sample(varInfo).value
-            samples[i].value[:elapsed] = time_elapsed
+            samples[i].elapsed = time_elapsed
             # If statement below is true if there is a HMC component which provides lp and epsilon
-            if lp != nothing samples[i].value[:lp] = lp end
-            if epsilon != nothing samples[i].value[:epsilon] = epsilon end
-            if lf_num != nothing samples[i].value[:lf_num] = lf_num end
-            if eval_num != nothing samples[i].value[:eval_num] = eval_num end
+            if lp != nothing samples[i].lp = lp end
+            if epsilon != nothing samples[i].epsilon = epsilon end
+            if lf_num != nothing samples[i].lf_num = lf_num end
+            if eval_num != nothing samples[i].eval_num = eval_num end
         end
 
         if PROGRESS[]

@@ -34,7 +34,34 @@ function init_varinfo(model, spl::Sampler{<:Hamiltonian}; resume_from = nothing,
     end
 end
 
-function _sample(vi, samples, spl, model, alg::Hamiltonian;
+using InteractiveUtils
+
+macro hmc_sample_loop_body(i, first)
+    esc(quote
+        @debug "$alg_str stepping..."
+
+        i = $i
+        time_elapsed = @elapsed vi, is_accept = step(model, spl, vi, Val($first))
+        time_total += time_elapsed
+
+        if is_accept # accepted => store the new predcits
+            samples[i].value = Sample(vi, spl).value
+        else         # rejected => store the previous predcits
+            samples[i] = samples[i - 1]
+        end
+        samples[i].elapsed = time_elapsed
+        if haskey(spl.info, :wum)
+            samples[i].lf_eps = getss(spl.info[:wum])
+        end
+
+        total_lf_num += spl.info[:lf_num]
+        total_eval_num += spl.info[:eval_num]
+        push!(accept_his, is_accept)
+        PROGRESS[] && ProgressMeter.next!(spl.info[:progress])
+    end)
+end
+
+function _sample(vi, samples, spl, model, alg::Hamiltonian,
                                 chunk_size=CHUNKSIZE[],             # set temporary chunk size
                                 save_state=false,                   # flag for state saving
                                 resume_from=nothing,                # chain to continue
@@ -66,26 +93,10 @@ function _sample(vi, samples, spl, model, alg::Hamiltonian;
     accept_his = Bool[]
     n = length(samples)
     PROGRESS[] && (spl.info[:progress] = ProgressMeter.Progress(n, 1, "[$alg_str] Sampling...", 0))
-    for i = 1:n
-        @debug "$alg_str stepping..."
 
-        time_elapsed = @elapsed vi, is_accept = step(model, spl, vi, Val(i == 1))
-        time_total += time_elapsed
-
-        if is_accept # accepted => store the new predcits
-            samples[i].value = Sample(vi, spl).value
-        else         # rejected => store the previous predcits
-            samples[i] = samples[i - 1]
-        end
-        samples[i].value[:elapsed] = time_elapsed
-        if haskey(spl.info, :wum)
-            samples[i].value[:lf_eps] = getss(spl.info[:wum])
-        end
-
-        total_lf_num += spl.info[:lf_num]
-        total_eval_num += spl.info[:eval_num]
-        push!(accept_his, is_accept)
-        PROGRESS[] && ProgressMeter.next!(spl.info[:progress])
+    @hmc_sample_loop_body(1, true)
+    for i = 2:n
+        @hmc_sample_loop_body(i, false)
     end
 
     println("[$alg_str] Finished with")

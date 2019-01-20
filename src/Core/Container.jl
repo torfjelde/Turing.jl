@@ -19,11 +19,17 @@ export  ParticleContainer,
         resample!,
         getsample
 
-mutable struct Trace
+mutable struct Trace{VI <: AbstractVarInfo}
     task  ::  Task
-    vi    ::  VarInfo
+    vi    ::  VI
     spl   ::  Union{Nothing, Sampler}
-    Trace() = (res = new(); res.vi = VarInfo(); res.spl = nothing; res)
+    function Trace()
+        vi = VarInfo()
+        res = new{typeof(vi)}()
+        res.vi = vi
+        res.spl = nothing
+        return res
+    end
 end
 
 # NOTE: this function is called by `forkr`
@@ -92,11 +98,11 @@ Data structure for particle filters
 - normalise!(pc::ParticleContainer)
 - consume(pc::ParticleContainer): return incremental likelihood
 """
-mutable struct ParticleContainer{T<:Particle, F}
+mutable struct ParticleContainer{T<:Particle, F, Tvals <: Array{T}, TlogW <: Array{Float64}}
     model :: F
     num_particles :: Int
-    vals  :: Array{T}
-    logWs :: Array{Float64}  # Log weights (Trace) or incremental likelihoods (ParticleContainer)
+    vals  :: Tvals
+    logWs :: TlogW  # Log weights (Trace) or incremental likelihoods (ParticleContainer)
     logE  :: Float64           # Log model evidence
     # conditional :: Union{Nothing,Conditional} # storing parameters, helpful for implementing rejuvenation steps
     conditional :: Nothing # storing parameters, helpful for implementing rejuvenation steps

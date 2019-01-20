@@ -6,9 +6,26 @@
 # Sample #
 ##########
 
-mutable struct Sample
+mutable struct Sample{Tvi}
     weight :: Float64     # particle weight
-    value :: Dict{Symbol,Any}
+    lp::Float64
+    lf_eps::Float64
+    elapsed::Float64
+    epsilon::Float64
+    lf_num::Int
+    eval_num::Int
+    vi::Tvi
+end
+function Base.getproperty(s::Sample, f::Symbol)
+    f === :value && return (s.lp, s.lf_eps, s.elapsed, s.epsilon, s.lf_num, s.eval_num, s.vi)
+    return getfield(s, f)    
+end
+function Base.setproperty!(s::Sample, f::Symbol, v)
+    if f === :value
+        s.lp, s.lf_eps, s.elapsed, s.epsilon, s.lf_num, s.eval_num, s.vi = v
+        return v
+    end
+    return setfield!(s, f, v)    
 end
 
 Base.getindex(s::Sample, v::Symbol) = getjuliatype(s, v)
@@ -86,9 +103,9 @@ mean(chain[:mu])      # find the mean of :mu
 mean(chain[:sigma])   # find the mean of :sigma
 ```
 """
-mutable struct Chain{R<:AbstractRange{Int}} <: AbstractChains
+mutable struct Chain{R <: AbstractRange{Int}, Tsamples <: Array{<:Sample}} <: AbstractChains
     weight  ::  Float64                 # log model evidence
-    value2  ::  Array{Sample}
+    value2  ::  Tsamples
     value   ::  Array{Float64, 3}
     range   ::  R # TODO: Perhaps change to UnitRange?
     names   ::  Vector{String}
@@ -97,7 +114,7 @@ mutable struct Chain{R<:AbstractRange{Int}} <: AbstractChains
 end
 
 function Chain()
-    Chain{AbstractRange{Int}}(
+    Chain{AbstractRange{Int}, Vector{Sample}}(
         0.0, 
         Vector{Sample}(), 
         Array{Float64, 3}(undef, 0, 0, 0), 
@@ -108,7 +125,7 @@ function Chain()
     )
 end
 
-function Chain(w::Real, s::Array{Sample})
+function Chain(w::Real, s::Array{<:Sample})
     chn = Chain()
     chn.weight = w
     chn.value2 = deepcopy(s)
@@ -144,9 +161,14 @@ ind2sub(v, i) = Tuple(CartesianIndices(v)[i])
 function flatten(s::Sample)
     vals  = Vector{Float64}()
     names = Vector{AbstractString}()
-    for (k, v) in s.value
-        flatten(names, vals, string(k), v)
-    end
+
+    flatten(names, vals, "lp", s.lp)
+    flatten(names, vals, "lf_eps", s.lf_eps)
+    flatten(names, vals, "elapsed", s.elapsed)
+    flatten(names, vals, "epsilon", s.epsilon)
+    flatten(names, vals, "lf_num", s.lf_num)
+    flatten(names, vals, "eval_num", s.eval_num)
+    flatten(names, vals, "vi", s.vi)
     return vals, names
 end
 function flatten(names, value :: Array{Float64}, k :: String, v)

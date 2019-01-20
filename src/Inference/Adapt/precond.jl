@@ -93,8 +93,8 @@ function Base.string(::UnitPreConditioner)
     return string([1.0])
 end
 
-struct DiagPreConditioner{TI<:Integer,TF<:Real} <: PreConditioner
-    ve  :: VarEstimator{TI,TF}
+struct DiagPreConditioner{TI<:Integer, TF<:Real, Tve <: VarEstimator} <: PreConditioner
+    ve  :: Tve
     std :: Vector{TF}
 end
 
@@ -120,8 +120,8 @@ function adapt!(dpc::DiagPreConditioner, θ, is_addsample::Bool, is_updatestd::B
     return false
 end
 
-struct DensePreConditioner{TI<:Integer,TF<:Real} <: PreConditioner
-    ce    :: CovarEstimator{TI,TF}
+struct DensePreConditioner{TI<:Integer, TF<:Real, Tce <: CovarEstimator{TI, TF}} <: PreConditioner
+    ce    :: Tce
     covar :: Matrix{TF}
 end
 

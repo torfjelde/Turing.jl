@@ -7,6 +7,7 @@ using ...Samplers
 using Distributions
 using Parameters: @unpack
 using ...Utilities
+import ...Utilities: flatten
 using Bijectors
 
 export  VarName, 
@@ -38,5 +39,30 @@ export  VarName,
 
 include("varinfo.jl")
 include("typed_varinfo.jl")
+
+@generated function flatten(names, value :: Array{Float64}, k :: String, v::TypedVarInfo{Tvis}) where Tvis
+    expr = Expr(:block)
+    for f in fieldnames(Tvis)
+        push!(expr.args, quote
+            idcs = v.vis.$f.idcs
+            ranges = v.vis.$f.ranges
+            vals = v.vis.$f.vals
+            for (vn, i) in idcs
+                range = ranges[i]
+                flatten(names, value, string(sym(vn)), vals[range])
+            end
+        end)
+    end
+    return expr
+end
+function flatten(names, value :: Array{Float64}, k :: String, v::UntypedVarInfo)
+    idcs = v.idcs
+    ranges = v.ranges
+    vals = v.vals
+    for (vn, i) in idcs
+        range = ranges[i]
+        flatten(names, value, string(sym(vn)), vals[range])
+    end
+end
 
 end # module

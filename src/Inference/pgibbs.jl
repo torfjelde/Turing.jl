@@ -30,7 +30,7 @@ function step(model, spl::Sampler{<:PG}, vi::AbstractVarInfo)
     return particles[indx].vi, true
 end
 
-init_samples(alg::PG, kwargs...) = Vector{Sample}()
+init_samples(alg::PG, vi::AbstractVarInfo, kwargs...) = Vector{Sample{typeof(vi)}}()
 function init_varinfo(model, spl::Sampler{<:PG}; resume_from = nothing, kwargs...)
     if resume_from == nothing
         return VarInfo()
@@ -59,7 +59,7 @@ function _sample(vi, samples, spl, model, alg::PG;
     for i = 1:n
         time_elapsed = @elapsed vi, _ = step(model, spl, vi)
         push!(samples, Sample(vi))
-        samples[i].value[:elapsed] = time_elapsed
+        samples[i].elapsed = time_elapsed
 
         time_total += time_elapsed
 
