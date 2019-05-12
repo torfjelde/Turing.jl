@@ -1,5 +1,6 @@
 using ForwardDiff, Distributions, FDM, Tracker, Random
 using Turing: gradient_logp_reverse, invlink, link, getval, SampleFromPrior
+using Turing.Core: TrackerAD, ZygoteAD
 using ForwardDiff: Dual
 using StatsFuns: binomlogpdf
 using Test
@@ -55,8 +56,11 @@ include("../test_utils/AllUtils.jl")
         _m = getval(vi, mvn)[1]
 
         x = map(x->Float64(x), vi[SampleFromPrior()])
-        ∇E = gradient_logp_reverse(x, vi, ad_test_f)[2]
-        grad_Turing = sort(∇E)
+        ∇E_tracker = gradient_logp_reverse(x, vi, ad_test_f, SampleFromPrior(), TrackerAD())[2]
+        ∇E_zygote = gradient_logp_reverse(x, vi, ad_test_f, SampleFromPrior(), ZygoteAD())[2]
+        @test isapprox(∇E_tracker, ∇E_zygote, atol = 1e-10)
+        grad_tracker = sort(∇E_tracker)
+        grad_zygote = sort(∇E_zygote)
 
         dist_s = InverseGamma(2,3)
 
@@ -75,10 +79,11 @@ include("../test_utils/AllUtils.jl")
         g = x -> ForwardDiff.gradient(logp, x);
         # _s = link(dist_s, _s)
         _x = [_m, _s]
-        grad_FWAD = sort(g(_x))
+        grad_fwd = sort(g(_x))
 
         # Compare result
-        @test grad_Turing ≈ grad_FWAD atol=1e-9
+        @test grad_tracker ≈ grad_zygote atol=1e-9
+        @test grad_zygote ≈ grad_fwd atol=1e-9
     end
     @turing_testset "passing duals to distributions" begin
         float1 = 1.1
