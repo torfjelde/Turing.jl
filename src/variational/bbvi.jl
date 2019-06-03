@@ -39,7 +39,6 @@ function optimize!(elbo::ELBO, alg::BBVI{AD}, q, model::Model, θ; optimizer = A
     time_elapsed = @elapsed while (i < max_iters) # & converged # <= add criterion? A running mean maybe?
         # TODO: separate into a `grad(...)` call; need to manually provide `diff_result` buffers
         # ForwardDiff.gradient!(diff_result, f, x)
-        Δ = zeros(length(θ))
 
         grad!(elbo, alg, q, model, θ, diff_result; samples_per_step = alg.samples_per_step)
 
@@ -50,7 +49,7 @@ function optimize!(elbo::ELBO, alg::BBVI{AD}, q, model::Model, θ; optimizer = A
         #     Δ += DiffResults.gradient(diff_result)
         # end
         
-        Δ = Optimise.apply!(optimizer, θ, Δ)
+        Δ = Optimise.apply!(optimizer, θ, DiffResults.gradient(diff_result))
         @. θ = θ - Δ
         
         Turing.DEBUG && @debug "Step $i" Δ DiffResults.value(diff_result) norm(DiffResults.gradient(diff_result))
@@ -77,57 +76,59 @@ function grad!(vo::ELBO, alg::BBVI{AD}, q::MeanFieldTransformed, model::Model, �
     # Set chunk size and do ForwardMode.
     chunk = ForwardDiff.Chunk(min(length(θ), chunk_size))
 
-    for s = 1:samples_per_step
-        z = Distributions.rand(q)
+    # for s = 1:samples_per_step
+    #     z = Distributions.rand(q)
         
-        # TODO: this probably slows down executation quite a bit; exists a better way of doing this?
-        logpdf_(θ_) = begin
-            q_ = MeanFieldTransformed(θ_[1:mid], θ_[mid + 1:end], q.dists, q.ranges)
-            logpdf(q_, z)
-        end
-
-        config = ForwardDiff.GradientConfig(logpdf_, θ, chunk)
-        ForwardDiff.gradient!(out, logpdf_, θ)
-
-        ∇ .+= DiffResults.gradient(out) .* (logdensity(model, z) - DiffResults.value(out)) / samples_per_step
-    end
-
-    # zs = Distributions.rand(q, samples_per_step)
-
-    # params_per_comp_dist = 2
-
-    # # completely overwritten on each loop, so initialize outside of
-    # # loop to reuse buffer instead of repeated allocations
-    # fs = zeros(samples_per_step, params_per_comp_dist)  # size s.t. can hold (μᵢ, ωᵢ)
-    # hs = zeros(samples_per_step, params_per_comp_dist)
-    
-    # for i = 1:length(q)        
-    #     for s = 1:samples_per_step
-    #         z = zs[:, s]
-
-    #         # TODO: generalize to MF approx for arbitrary distributions
-    #         logpdf_(θ_) = begin
-    #             qᵢ = Normal(θ_[1], exp(θ_[2]))  # construct the MF-distribution
-    #             logpdf(qᵢ, z[i])
-    #         end
-
-    #         θᵢ = [θ[i], θ[i + length(q)]]  # extract [μ, ω]
-
-    #         config = ForwardDiff.GradientConfig(logpdf_, θᵢ, chunk)
-    #         ∇ᵢ = ForwardDiff.gradient(logpdf_, θᵢ)
-
-    #         # TODO: this is wrong; need to do component-wise?
-    #         fs[s, :] = ∇ᵢ * (logdensity(model, z) - logpdf(q[i], z[i]))
-    #         hs[s, :] = ∇ᵢ
+    #     # TODO: this probably slows down executation quite a bit; exists a better way of doing this?
+    #     logpdf_(θ_) = begin
+    #         q_ = MeanFieldTransformed(θ_[1:mid], θ_[mid + 1:end], q.dists, q.ranges)
+    #         logpdf(q_, z)
     #     end
 
-    #     # compute optimal scaling factor
-    #     a = sum([cov(fs[:, d], hs[:, d]) for d = 1:params_per_comp_dist]) / sum([var(hs[:, d]) for d = 1:params_per_comp_dist])
+    #     config = ForwardDiff.GradientConfig(logpdf_, θ, chunk)
+    #     ForwardDiff.gradient!(out, logpdf_, θ)
 
-    #     # store
-    #     ∇[i] += mean(fs[:, 1] - a .* hs[:, 1])             # μᵢ
-    #     ∇[i + length(q)] += mean(fs[:, 2] - a .* hs[:, 2]) # ωᵢ
+    #     ∇ .+= DiffResults.gradient(out) .* (logdensity(model, z) - DiffResults.value(out)) / samples_per_step
     # end
+
+    # BELOW IS (SUPPOSED TO BE) WITH VARIANCE REDUCTION TECHNIQUES
+
+    zs = Distributions.rand(q, samples_per_step)
+
+    params_per_comp_dist = 2
+
+    # completely overwritten on each loop, so initialize outside of
+    # loop to reuse buffer instead of repeated allocations
+    fs = zeros(samples_per_step, params_per_comp_dist)  # size s.t. can hold (μᵢ, ωᵢ)
+    hs = zeros(samples_per_step, params_per_comp_dist)
+    
+    for i = 1:length(q)        
+        for s = 1:samples_per_step
+            z = zs[:, s]
+
+            # TODO: generalize to MF approx for arbitrary distributions
+            logpdf_(θ_) = begin
+                qᵢ = Normal(θ_[1], exp(θ_[2]))  # construct the MF-distribution
+                logpdf(qᵢ, z[i])
+            end
+
+            θᵢ = [θ[i], θ[i + length(q)]]  # extract [μ, ω]
+
+            config = ForwardDiff.GradientConfig(logpdf_, θᵢ, chunk)
+            ∇ᵢ = ForwardDiff.gradient(logpdf_, θᵢ)
+
+            # TODO: is wrong? need to do component-wise? Confused by paper
+            fs[s, :] = ∇ᵢ * (logdensity(model, z) - logpdf(q[i], z[i]))
+            hs[s, :] = ∇ᵢ
+        end
+
+        # compute optimal scaling factor
+        a = sum([cov(fs[:, d], hs[:, d]) for d = 1:params_per_comp_dist]) / sum([var(hs[:, d]) for d = 1:params_per_comp_dist])
+
+        # store
+        ∇[i] += mean(fs[:, 1] - a .* hs[:, 1])             # μᵢ
+        ∇[i + length(q)] += mean(fs[:, 2] - a .* hs[:, 2]) # ωᵢ
+    end
 
     DiffResults.gradient!(out, - ∇)  # `optimize!` steps in negative direction
 end
