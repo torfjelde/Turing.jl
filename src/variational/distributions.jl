@@ -61,7 +61,8 @@ Base.length(q::MeanFieldTransformed) = length(q.μ)
 params(q::MeanFieldTransformed) = vcat(q.μ, q.ω)
 
 _logpdf(q::MeanFieldTransformed, x::AbstractVector{T}) where {T <: Real} = begin
-    sum([logpdf(Normal(q.μ[i], exp(q.ω[i])), x[i]) for i = 1:length(x)])
+    # TODO: THIS IS WRONG! Need to scale with jacobian of transform
+    sum([logpdf(Normal(q.μ[i], exp(q.ω[i])), link(q.dists[i], x[i])) for i = 1:length(x)])
 end
 
 _rand!(rng::AbstractRNG, q::MeanFieldTransformed{TDists}, x::AbstractVector{T}) where {T<:Real, TDists <: AbstractVector{<: Distribution}} = begin
