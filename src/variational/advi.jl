@@ -1,8 +1,3 @@
-using ForwardDiff
-using Flux.Tracker
-using Flux.Optimise
-
-
 """
     ADVI(samplers_per_step = 10, max_iters = 5000)
 
@@ -27,7 +22,7 @@ vi(model::Model, alg::ADVI; optimizer = ADAGrad()) = begin
     dists = var_info.dists
     ranges = var_info.ranges
     
-    q = MeanField(zeros(num_params), zeros(num_params), dists, ranges)
+    q = MeanFieldTransformed(zeros(num_params), zeros(num_params), dists, ranges)
 
     # construct objective
     elbo = ELBO()
@@ -37,27 +32,24 @@ vi(model::Model, alg::ADVI; optimizer = ADAGrad()) = begin
     μ, ω = θ[1:length(q)], θ[length(q) + 1:end]
 
     # TODO: make mutable instead?
-    MeanField(μ, ω, dists, ranges) 
+    MeanFieldTransformed(μ, ω, dists, ranges) 
 end
 
 # TODO: implement optimize like this?
-# (advi::ADVI)(elbo::EBLO, q::MeanField, model::Model) = begin
+# (advi::ADVI)(elbo::EBLO, q::MeanFieldTransformed, model::Model) = begin
 # end
 
-function optimize(elbo::ELBO, alg::ADVI, q::MeanField, model::Model; optimizer = ADAGrad())
+function optimize(elbo::ELBO, alg::ADVI, q::MeanFieldTransformed, model::Model; optimizer = ADAGrad())
     θ = randn(2 * length(q))
     optimize!(elbo, alg, q, model, θ; optimizer = optimizer)
 
     return θ
 end
 
-function optimize!(elbo::ELBO, alg::ADVI{AD}, q::MeanField, model::Model, θ; optimizer = ADAGrad()) where AD
+function optimize!(elbo::ELBO, alg::ADVI{AD}, q::MeanFieldTransformed, model::Model, θ; optimizer = ADAGrad()) where AD
     alg_name = alg_str(alg)
     samples_per_step = alg.samples_per_step
     max_iters = alg.max_iters
-
-    # number of previous gradients to use to compute `s` in adaGrad
-    stepsize_num_prev = 10
     
     # setup
     # var_info = Turing.VarInfo()
@@ -110,7 +102,7 @@ function optimize!(elbo::ELBO, alg::ADVI{AD}, q::MeanField, model::Model, θ; op
     return θ
 end
 
-function grad!(vo::ELBO, alg::ADVI{AD}, q::MeanField, model::Model, θ::AbstractVector{T}, out::DiffResults.MutableDiffResult, args...) where {T <: Real, AD <: ForwardDiffAD}
+function grad!(vo::ELBO, alg::ADVI{AD}, q::MeanFieldTransformed, model::Model, θ::AbstractVector{T}, out::DiffResults.MutableDiffResult, args...) where {T <: Real, AD <: ForwardDiffAD}
     # TODO: this probably slows down executation quite a bit; exists a better way of doing this?
     f(θ_) = - vo(alg, q, model, θ_, args...)
 
@@ -122,10 +114,10 @@ function grad!(vo::ELBO, alg::ADVI{AD}, q::MeanField, model::Model, θ::Abstract
 end
 
 # TODO: implement for `Tracker`
-# function grad(vo::ELBO, alg::ADVI, q::MeanField, model::Model, f, autodiff::Val{:backward})
+# function grad(vo::ELBO, alg::ADVI, q::MeanFieldTransformed, model::Model, f, autodiff::Val{:backward})
 #     vo_tracked, vo_pullback = Tracker.forward()
 # end
-function grad!(vo::ELBO, alg::ADVI{AD}, q::MeanField, model::Model, θ::AbstractVector{T}, out::DiffResults.MutableDiffResult, args...) where {T <: Real, AD <: TrackerAD}
+function grad!(vo::ELBO, alg::ADVI{AD}, q::MeanFieldTransformed, model::Model, θ::AbstractVector{T}, out::DiffResults.MutableDiffResult, args...) where {T <: Real, AD <: TrackerAD}
     θ_tracked = Tracker.param(θ)
     y = - vo(alg, q, model, θ_tracked, args...)
     Tracker.back!(y, 1.0)
@@ -134,7 +126,7 @@ function grad!(vo::ELBO, alg::ADVI{AD}, q::MeanField, model::Model, θ::Abstract
     DiffResults.gradient!(out, Tracker.grad(θ_tracked))
 end
 
-function (elbo::ELBO)(alg::ADVI, q::MeanField, model::Model, θ::AbstractVector{T}, num_samples) where T <: Real
+function (elbo::ELBO)(alg::ADVI, q::MeanFieldTransformed, model::Model, θ::AbstractVector{T}, num_samples) where T <: Real
     # setup
     var_info = Turing.VarInfo()
 
@@ -185,7 +177,7 @@ function (elbo::ELBO)(alg::ADVI, q::MeanField, model::Model, θ::AbstractVector{
     elbo_acc
 end
 
-function (elbo::ELBO)(alg::ADVI, q::MeanField, model::Model, num_samples)
+function (elbo::ELBO)(alg::ADVI, q::MeanFieldTransformed, model::Model, num_samples)
     # extract the mean-field Gaussian params
     θ = vcat(q.μ, q.ω)
 

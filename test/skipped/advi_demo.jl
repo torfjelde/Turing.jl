@@ -45,7 +45,7 @@ for seed ∈ seeds
         # ADVI
         opt = ADAGrad()                  # optimizer taking value and gradient to new value
         advi = ADVI(10, 100)             # <: VariationalInference
-        q = vi(m, advi; optimizer = opt) # => MeanField <: VariationalPosterior
+        q = vi(m, advi; optimizer = opt) # => MeanFieldTransformed <: VariationalPosterior
         
         elbo = Variational.ELBO()        # <: VariationalObjective
 
@@ -62,7 +62,7 @@ for seed ∈ seeds
             Variational.optimize!(elbo, advi, q, m, θ; optimizer = opt)
             μ, ω = θ[1:length(q)], θ[length(q) + 1:end]
             
-            q = Variational.MeanField(μ, ω, q.dists, q.ranges)
+            q = Variational.MeanFieldTransformed(μ, ω, q.dists, q.ranges)
             samples = rand(q, 2000)
 
             # quick check

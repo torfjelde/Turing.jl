@@ -8,11 +8,17 @@ using ..Turing: Model, SampleFromPrior, SampleFromUniform
 using ..Turing: Turing
 using Random: AbstractRNG
 
+using ForwardDiff
+using Flux.Tracker
+using Flux.Optimise
+
+
 import ..Core: getchunksize, getADtype
 
 export
     vi,
     ADVI,
+    BBVI,
     ELBO
 
 
@@ -76,5 +82,6 @@ include("objectives.jl")
 
 # VI algorithms
 include("advi.jl")
+include("bbvi.jl")
 
 end
