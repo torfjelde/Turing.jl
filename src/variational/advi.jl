@@ -102,7 +102,7 @@ function optimize!(elbo::ELBO, alg::ADVI{AD}, q::MeanFieldTransformed, model::Mo
     return θ
 end
 
-function (elbo::ELBO)(alg::ADVI, q::MeanField, model::Model, θ::AbstractVector{T}, num_samples) where T <: Real
+function (elbo::ELBO)(alg::ADVI, q::MeanFieldTransformed, model::Model, θ::AbstractVector{T}, num_samples) where T <: Real
     # setup
     var_info = Turing.VarInfo()
 
