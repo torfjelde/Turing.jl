@@ -1,12 +1,15 @@
 ##############################
 # Global variables/constants #
 ##############################
+using Bijectors
 
 const ADBACKEND = Ref(:forward_diff)
 function setadbackend(backend_sym)
     @assert backend_sym == :forward_diff || backend_sym == :reverse_diff
     backend_sym == :forward_diff && CHUNKSIZE[] == 0 && setchunksize(40)
     ADBACKEND[] = backend_sym
+
+    Bijectors.setadbackend(backend_sym)
 end
 
 const ADSAFE = Ref(false)
@@ -363,6 +366,7 @@ struct TuringDiagNormal{Tm<:AbstractVector, Tσ<:AbstractVector} <: ContinuousMu
     σ::Tσ
 end
 
+Base.length(d::TuringDiagNormal) = length(d.m)
 Distributions.dim(d::TuringDiagNormal) = length(d.m)
 function Distributions.rand(rng::Random.AbstractRNG, d::TuringDiagNormal)
     return d.m .+ d.σ .* randn(rng, dim(d))
@@ -371,7 +375,13 @@ function Distributions.logpdf(d::TuringDiagNormal, x::AbstractVector)
     return -(dim(d) * log(2π) + 2 * sum(log.(d.σ)) + sum(abs2, (x .- d.m) ./ d.σ)) / 2
 end
 
+import Distributions: params
+import StatsBase: entropy
+entropy(d::TuringDiagNormal) = sum(log.(d.σ))
+params(d::TuringDiagNormal) = (d.m, d.σ)
 
+import Bijectors: update
+update(d::TuringDiagNormal, θ) = TuringDiagNormal(θ...)
 
 #
 # Intercepts to construct appropriate TuringMvNormal types. Methods line-separated. Imports

@@ -6,6 +6,7 @@ using ProgressMeter, LinearAlgebra
 using ..Turing: PROGRESS
 using ..Turing: Model, SampleFromPrior, SampleFromUniform
 using ..Turing: Turing
+using ..Core: TuringDiagNormal
 using Random: AbstractRNG
 
 using ForwardDiff
@@ -123,11 +124,15 @@ function grad!(
     out::DiffResults.MutableDiffResult,
     args...
 ) where {T <: Real, AD <: TrackerAD}
+    # TODO: make things work with `TrackedArray` instead of `Array{TrackedReal}`
     θ_tracked = [Tracker.param(θ[i]) for i ∈ eachindex(θ)]
+    # θ_tracked = Tracker.param(θ)
+    # @info θ_tracked
     y = - vo(alg, q, model, θ_tracked, args...)
     Tracker.back!(y, 1.0)
 
     DiffResults.value!(out, Tracker.data(y))
+    # DiffResults.gradient!(out, Tracker.grad(θ_tracked))
     DiffResults.gradient!(out, [Tracker.grad(θ_tracked[i]) for i ∈ eachindex(θ_tracked)])
 end
 
