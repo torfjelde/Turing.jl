@@ -1,3 +1,5 @@
+using StatsFuns
+
 """
     ADVI(samples_per_step = 10, max_iters = 5000)
 
@@ -42,10 +44,11 @@ function meanfield(model::Model)
     end
 
     # construct variatioanl posterior
-    θ = randn(2 * num_params)
-    μ, ω = θ[1:num_params], θ[num_params + 1:end]
+    μ = randn(num_params)
+    σ = softplus.(randn(num_params))
+    # σ = Distributions.rand(InverseGamma(3, 1), num_params)
 
-    d = TuringDiagNormal(μ, exp.(ω))
+    d = TuringDiagNormal(μ, σ)
     bs = inv.(bijector.(tuple(dists...)))
     b = Stacked(bs, ranges)
 
@@ -55,15 +58,7 @@ end
 
 function vi(model::Model, alg::ADVI; optimizer = TruncatedADAGrad())
     q = meanfield(model)
-    
-    # construct objective
-    elbo = ELBO()
-
-    Turing.DEBUG && @debug "Optimizing ADVI..."
-    θ = optimize(elbo, alg, q, model; optimizer = optimizer)
-    μ, ω = θ[1:length(q)], θ[length(q) + 1:end]
-
-    return update(q, (μ, exp.(ω)))
+    return vi(model, alg, q; optimizer = optimizer)
 end
 
 # TODO: make more flexible, allowing other types of `q`
@@ -73,14 +68,11 @@ function vi(
     q::TransformedDistribution{<: TuringDiagNormal};
     optimizer = TruncatedADAGrad()
 )
-    # construct objective
-    elbo = ELBO()
-
     Turing.DEBUG && @debug "Optimizing ADVI..."
     θ = optimize(elbo, alg, q, model; optimizer = optimizer)
     μ, ω = θ[1:length(q)], θ[length(q) + 1:end]
 
-    return update(q, (μ, exp.(ω)))
+    return update(q, (μ, softplus.(ω)))
 end
 
 function optimize(
@@ -112,7 +104,7 @@ function (elbo::ELBO)(
     μ, ω = θ[1:num_params], θ[num_params + 1: end]
 
     # update the variational posterior
-    q = update(q, [μ, exp.(ω)])
+    q = update(q, [μ, softplus.(ω)])
 
     # sample from variational posterior
     samples = Distributions.rand(q, num_samples)
@@ -130,7 +122,7 @@ function (elbo::ELBO)(
         elbo_acc += (varinfo.logp + logabsdetjac(q, z)) / num_samples
     end
 
-    elbo_acc += entropy(q)
+    elbo_acc -= entropy(q)
 
     return elbo_acc
 end
@@ -143,7 +135,7 @@ function (elbo::ELBO)(
 )
     # extract the mean-field Gaussian params
     μ, σs = params(q)
-    θ = vcat(μ, log.(σs))
+    θ = vcat(μ, invsoftplus.(σs))
 
     return elbo(alg, q, model, θ, num_samples)
 end

@@ -23,6 +23,7 @@ export
     vi,
     ADVI,
     ELBO,
+    elbo,
     TruncatedADAGrad
 
 abstract type VariationalInference{AD} end
