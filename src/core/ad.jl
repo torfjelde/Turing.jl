@@ -380,8 +380,9 @@ import StatsBase: entropy
 entropy(d::TuringDiagNormal) = sum(log.(d.σ))
 params(d::TuringDiagNormal) = (d.m, d.σ)
 
-import Bijectors: update
-update(d::TuringDiagNormal, θ) = TuringDiagNormal(θ...)
+import Bijectors: update, bijector
+update(d::TuringDiagNormal, θ...) = TuringDiagNormal(θ...)
+bijector(d::TuringDiagNormal) = Bijectors.IdentityBijector
 
 #
 # Intercepts to construct appropriate TuringMvNormal types. Methods line-separated. Imports
