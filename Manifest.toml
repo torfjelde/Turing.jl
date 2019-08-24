@@ -35,7 +35,7 @@ uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 deps = ["Distributions", "ForwardDiff", "LinearAlgebra", "MappedArrays", "Random", "Reexport", "Requires", "Roots", "StatsBase", "StatsFuns", "Tracker"]
 git-tree-sha1 = "d8cada8192c338264cbbec812d4258cb3d58af89"
 repo-rev = "tor/interface-improved-v2"
-repo-url = "https://github.com/torfjelde/Bijectors.jl.git"
+repo-url = "https://github.com/torfjelde/Bijectors.jl"
 uuid = "76274a88-744f-5084-9051-94815aaf08c4"
 version = "0.3.2"
 
