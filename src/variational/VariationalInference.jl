@@ -121,7 +121,7 @@ function grad!(
     alg::VariationalInference{AD},
     q::VariationalPosterior,
     model::Model,
-    θ::AbstractArray{T},
+    θ::AbstractVector{T},
     out::DiffResults.MutableDiffResult,
     args...
 ) where {T <: Real, AD <: TrackerAD}
@@ -142,6 +142,14 @@ function TrackedArray(f::Call, x::SA) where {T, N, A, SA <: SubArray{T, N, A}}
     TrackedArray(f, convert(A, x))
 end
 
+allnonneg(xs::AbstractArray{<:Real}) = all(x -> x >= 0, xs)
+
+isprobvec(p::AbstractVector{T}) where {T<:Real} =
+    allnonneg(p) && isapprox(sum(p), one(T))
+
+Distributions.isprobvec(p::AbstractVector{T}) where {T<:Real} =
+    allnonneg(p) && Distributions.isapprox(sum(p), one(T))
+
 
 """
     optimize!(vo, alg::VariationalInference{AD}, q::VariationalPosterior, model::Model, θ; optimizer = TruncatedADAGrad())
@@ -154,7 +162,7 @@ function optimize!(
     alg::VariationalInference{AD},
     q::VariationalPosterior,
     model::Model,
-    θ::AbstractArray{<: Real};
+    θ::AbstractVector{<: Real};
     optimizer = TruncatedADAGrad()
 ) where AD
     # TODO: should we always assume `samples_per_step` and `max_iters` for all algos?
