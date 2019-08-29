@@ -101,26 +101,29 @@ function (elbo::ELBO)(
     varinfo = Turing.VarInfo(model)
     
     num_params = length(q)
-    μ = @view θ[1:num_params]
-    ω = @view θ[num_params + 1: end]
+    μ = θ[1:num_params]
+    ω = θ[num_params + 1: end]
 
     # update the variational posterior
     q = update(q, μ, softplus.(ω))
-
+    
     # sample from variational posterior
+    # TODO: when batch computation is supported by Bijectors.jl
+    # use `forward` instead.
     samples = Distributions.rand(q, num_samples)
 
     elbo_acc = 0.0
     
     for i = 1:num_samples
         z = samples[:, i]
+        # _, z, logjac, _ = forward(q)
 
-        # results in an issue if `z`
+        # compute the logdensity
         varinfo = VarInfo(varinfo, SampleFromUniform(), z)
         model(varinfo)
 
         # `logabsdetjac` here is actually `logabsdetjacinv`
-        elbo_acc += (varinfo.logp + logabsdetjac(q, z)) / num_samples
+        elbo_acc += (varinfo.logp - logabsdetjacinv(q, z)) / num_samples
     end
 
     elbo_acc -= entropy(q)

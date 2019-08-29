@@ -17,11 +17,13 @@ import ..Core: getchunksize, getADtype
 using Requires
 function __init__()
     @require Flux="587475ba-b771-5e3f-ad9e-33799f191a9c" apply!(o, x, Δ) = Flux.Optimise.apply!(o, x, Δ)
+    @require Flux="587475ba-b771-5e3f-ad9e-33799f191a9c" Flux.Optimise.apply!(o::TruncatedADAGrad, x, Δ) = apply!(o, x, Δ)
 end
 
 export
     vi,
     ADVI,
+    SVI,
     ELBO,
     elbo,
     TruncatedADAGrad
@@ -217,5 +219,6 @@ include("optimisers.jl")
 
 # VI algorithms
 include("advi.jl")
+include("svi.jl")
 
 end

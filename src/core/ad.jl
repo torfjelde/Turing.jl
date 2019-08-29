@@ -386,6 +386,9 @@ Distributions.dim(d::TuringDiagNormal) = length(d.m)
 function Distributions.rand(rng::Random.AbstractRNG, d::TuringDiagNormal)
     return d.m .+ d.σ .* randn(rng, dim(d))
 end
+function Distributions.rand(rng::Random.AbstractRNG, d::TuringDiagNormal, n::Int)
+    return d.m .+ d.σ .* randn(rng, dim(d), n)
+end
 for T in (:AbstractVector, :AbstractMatrix)
     @eval Distributions.logpdf(d::TuringDiagNormal, x::$T) = _logpdf(d, x)
     @eval Distributions.logpdf(d::TuringMvNormal, x::$T) = _logpdf(d, x)
@@ -412,7 +415,12 @@ end
 
 import Distributions: params
 import StatsBase: entropy
-entropy(d::TuringDiagNormal) = sum(log.(d.σ))
+using StatsFuns: log2π
+
+function entropy(d::TuringDiagNormal)
+    T = eltype(d.σ)
+    return (length(d) * (T(log2π) + one(T))) / 2 + sum(log.(d.σ))
+end
 params(d::TuringDiagNormal) = (d.m, d.σ)
 
 import Bijectors: update, bijector

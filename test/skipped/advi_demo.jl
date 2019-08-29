@@ -3,6 +3,7 @@ using Random
 using Bijectors
 using Turing
 using Turing: Variational
+using StatsFuns: softplus
 
 # setup for plotting
 using Plots, StatsPlots, LaTeXStrings
@@ -47,8 +48,8 @@ for seed ∈ seeds
         
         elbo = Variational.ELBO()              # <: VariationalObjective
 
-        μ, ω = params(q)
-        θ = vcat(μ, ω)
+        μ, σs = params(q)
+        θ = vcat(μ, invsoftplus.(σs))
 
         history = [elbo(advi, q, m, 1000)]     # history of objective evaluations
 
@@ -58,7 +59,7 @@ for seed ∈ seeds
             Variational.optimize!(elbo, advi, q, m, θ; optimizer = opt)
             μ, ω = θ[1:length(q)], θ[length(q) + 1:end]
             
-            q = Bijectors.update(q, (μ, exp.(ω)))
+            q = Bijectors.update(q, μ, softplus.(ω))
             samples = rand(q, 2000)
 
             # quick check
