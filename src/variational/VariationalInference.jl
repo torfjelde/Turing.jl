@@ -144,15 +144,6 @@ function TrackedArray(f::Call, x::SA) where {T, N, A, SA <: SubArray{T, N, A}}
     TrackedArray(f, convert(A, x))
 end
 
-allnonneg(xs::AbstractArray{<:Real}) = all(x -> x >= 0, xs)
-
-isprobvec(p::AbstractVector{T}) where {T<:Real} =
-    allnonneg(p) && isapprox(sum(p), one(T))
-
-Distributions.isprobvec(p::AbstractVector{T}) where {T<:Real} =
-    allnonneg(p) && Distributions.isapprox(sum(p), one(T))
-
-
 """
     optimize!(vo, alg::VariationalInference{AD}, q::VariationalPosterior, model::Model, θ; optimizer = TruncatedADAGrad())
 
