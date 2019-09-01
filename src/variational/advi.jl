@@ -126,7 +126,7 @@ function (elbo::ELBO)(
         elbo_acc += (varinfo.logp - logabsdetjacinv(q, z)) / num_samples
     end
 
-    elbo_acc -= entropy(q)
+    elbo_acc += entropy(q)
 
     return elbo_acc
 end
