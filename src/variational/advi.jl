@@ -45,7 +45,7 @@ function meanfield(model::Model)
 
     # construct variatioanl posterior
     μ = randn(num_params)
-    σ = softplus.(randn(num_params))
+    σ = exp.(randn(num_params))
     # σ = Distributions.rand(InverseGamma(3, 1), num_params)
 
     d = TuringDiagNormal(μ, σ)
@@ -72,7 +72,7 @@ function vi(
     θ = optimize(elbo, alg, q, model; optimizer = optimizer)
     μ, ω = θ[1:length(q)], θ[length(q) + 1:end]
 
-    return update(q, μ, softplus.(ω))
+    return update(q, μ, exp.(ω))
 end
 
 function optimize(
@@ -105,7 +105,7 @@ function (elbo::ELBO)(
     ω = θ[num_params + 1: end]
 
     # update the variational posterior
-    q = update(q, μ, softplus.(ω))
+    q = update(q, μ, exp.(ω))
     
     # sample from variational posterior
     # TODO: when batch computation is supported by Bijectors.jl
@@ -139,7 +139,7 @@ function (elbo::ELBO)(
 )
     # extract the mean-field Gaussian params
     μ, σs = params(q)
-    θ = vcat(μ, invsoftplus.(σs))
+    θ = vcat(μ, log.(σs))
 
     return elbo(alg, q, model, θ, num_samples)
 end
