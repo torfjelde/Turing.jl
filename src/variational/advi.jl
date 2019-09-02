@@ -1,7 +1,7 @@
 using StatsFuns
 
 """
-    ADVI(samples_per_step = 10, max_iters = 5000)
+    ADVI(samples_per_step = 1, max_iters = 1000)
 
 Automatic Differentiation Variational Inference (ADVI) for a given model.
 """
@@ -11,7 +11,7 @@ struct ADVI{AD} <: VariationalInference{AD}
 end
 
 ADVI(args...) = ADVI{ADBackend()}(args...)
-ADVI() = ADVI(10, 5000)
+ADVI() = ADVI(1, 1000)
 
 alg_str(::ADVI) = "ADVI"
 
@@ -45,7 +45,7 @@ function meanfield(model::Model)
 
     # construct variatioanl posterior
     μ = randn(num_params)
-    σ = exp.(randn(num_params))
+    σ = softplus.(randn(num_params))
     # σ = Distributions.rand(InverseGamma(3, 1), num_params)
 
     d = TuringDiagNormal(μ, σ)
@@ -72,7 +72,7 @@ function vi(
     θ = optimize(elbo, alg, q, model; optimizer = optimizer)
     μ, ω = θ[1:length(q)], θ[length(q) + 1:end]
 
-    return update(q, μ, exp.(ω))
+    return update(q, μ, softplus.(ω))
 end
 
 function optimize(
@@ -83,11 +83,18 @@ function optimize(
     optimizer = TruncatedADAGrad()
 )
     μ, σs = params(q)
-    θ = vcat(μ, log.(σs))
+    θ = vcat(μ, invsoftplus.(σs))
 
     optimize!(elbo, alg, q, model, θ; optimizer = optimizer)
 
     return θ
+end
+
+function _logdensity(model, varinfo, z)
+    varinfo = VarInfo(varinfo, SampleFromUniform(), z)
+    model(varinfo)
+
+    return varinfo.logp
 end
 
 function (elbo::ELBO)(
@@ -95,40 +102,39 @@ function (elbo::ELBO)(
     q::TransformedDistribution{<: TuringDiagNormal},
     model::Model,
     θ::AbstractVector{T},
-    num_samples
+    num_samples,
+    weight_ll = 1.0
 ) where T <: Real
     # setup
     varinfo = Turing.VarInfo(model)
-    
+
+    # extract params
     num_params = length(q)
     μ = θ[1:num_params]
     ω = θ[num_params + 1: end]
 
     # update the variational posterior
-    q = update(q, μ, exp.(ω))
+    q = update(q, μ, softplus.(ω))
     
     # sample from variational posterior
-    # TODO: when batch computation is supported by Bijectors.jl
-    # use `forward` instead.
+    # TODO: when batch computation is supported by Bijectors.jl use `forward` instead.
     samples = Distributions.rand(q, num_samples)
 
-    elbo_acc = 0.0
-    
-    for i = 1:num_samples
+    # rescaling due to loglikelihood weight and samples used
+    c = weight_ll / num_samples
+
+    # ELBO = 𝔼[log p(x, z) - log q(z)]
+    #      = 𝔼[log p(x, f⁻¹(y)) + logabsdet(J(f⁻¹(y)))] + H(q(z))
+    z = samples[:, 1]
+    res = (_logdensity(model, varinfo, z) + logabsdetjacinv(q, z)) * c
+    for i = 2:num_samples
         z = samples[:, i]
-        # _, z, logjac, _ = forward(q)
-
-        # compute the logdensity
-        varinfo = VarInfo(varinfo, SampleFromUniform(), z)
-        model(varinfo)
-
-        # `logabsdetjac` here is actually `logabsdetjacinv`
-        elbo_acc += (varinfo.logp - logabsdetjacinv(q, z)) / num_samples
+        res += (_logdensity(model, varinfo, z) + logabsdetjacinv(q, z)) * c
     end
 
-    elbo_acc += entropy(q)
+    res += entropy(q)
 
-    return elbo_acc
+    return res
 end
 
 function (elbo::ELBO)(
@@ -139,7 +145,7 @@ function (elbo::ELBO)(
 )
     # extract the mean-field Gaussian params
     μ, σs = params(q)
-    θ = vcat(μ, log.(σs))
+    θ = vcat(μ, invsoftplus.(σs))
 
     return elbo(alg, q, model, θ, num_samples)
 end
