@@ -18,7 +18,7 @@ alg_str(::ADVI) = "ADVI"
 """
     meanfield(model::Model)
 
-Creates a mean-field approximation with MvNormal as underlying distribution.
+Creates a mean-field approximation with multivariate normal as underlying distribution.
 """
 function meanfield(model::Model)
     # setup
