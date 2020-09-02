@@ -1,5 +1,5 @@
-using Plots
-unicodeplots()
+# using Plots
+# unicodeplots()
 
 using Turing
 using Turing: AIS
@@ -41,12 +41,12 @@ include(dir*"/test/test_utils/AllUtils.jl")
         # latent
         z ~ Normal()
         # observed
-        x ~ Normal(z, 0.1)
+        x ~ Normal(z)
     end
     model_2 = model_2_macro(5.)
 
     # declare algorithm and sampler for model_2
-    schedule_2 = 0.025:0.05:0.975
+    schedule_2 = 0.025:0.025:0.975
     proposal_kernels_2 = [RandomWalkProposal(MvNormal(1, 1.)) for i in 1:length(schedule_2)]
     alg_2 = AIS(proposal_kernels_2, schedule_2)
     spl_2 = Sampler(alg_2, model_2)
@@ -103,28 +103,28 @@ include(dir*"/test/test_utils/AllUtils.jl")
         end
     end
 
-    @testset "plots for gen_logjoint, gen_logprior, gen_log_unnorm_tempered" begin
-        interval = 0:0.1:10
+    # @testset "plots for gen_logjoint, gen_logprior, gen_log_unnorm_tempered" begin
+    #     interval = 0:0.1:10
 
-        # test gen_logjoint for model 2: plot
-        logjoint = gen_logjoint(spl_2.state.vi, model_2, spl_2)
-        logjoint_values = logjoint.([[x] for x in interval])
-        density_plots = plot(interval, logjoint_values)
+    #     # test gen_logjoint for model 2: plot
+    #     logjoint = gen_logjoint(spl_2.state.vi, model_2, spl_2)
+    #     logjoint_values = logjoint.([[x] for x in interval])
+    #     density_plots = plot(interval, logjoint_values)
 
-        # test gen_logprior for model 2: plot
-        logprior = gen_logprior(spl_2.state.vi, model_2, spl_2)
-        logprior_values = logprior.([[x] for x in interval])
-        plot!(density_plots, interval, logprior_values)
+    #     # test gen_logprior for model 2: plot
+    #     logprior = gen_logprior(spl_2.state.vi, model_2, spl_2)
+    #     logprior_values = logprior.([[x] for x in interval])
+    #     plot!(density_plots, interval, logprior_values)
 
-        # test gen_log_unnorm_tempered for model 2: plot
-        for beta in 0.2:0.2:0.8
-            log_unnorm_tempered = gen_log_unnorm_tempered(logprior, logjoint, beta)
-            log_unnorm_tempered_values = log_unnorm_tempered.([[x] for x in interval])
-            plot!(density_plots, interval, log_unnorm_tempered_values)
-        end
+    #     # test gen_log_unnorm_tempered for model 2: plot
+    #     for beta in 0.2:0.2:0.8
+    #         log_unnorm_tempered = gen_log_unnorm_tempered(logprior, logjoint, beta)
+    #         log_unnorm_tempered_values = log_unnorm_tempered.([[x] for x in interval])
+    #         plot!(density_plots, interval, log_unnorm_tempered_values)
+    #     end
 
-        display(density_plots)
-    end
+    #     display(density_plots)
+    # end
 
     # 3. tests related to sample_init!
 
@@ -156,25 +156,29 @@ include(dir*"/test/test_utils/AllUtils.jl")
         end
     end
     
-    @testset "plots for prior_step" begin
-        list_samples = []
-        for i in 1:50
-            push!(list_samples, first(first(prior_step(spl_2, model_2))))
-        end
-        prior_step_hist = histogram(list_samples)
-        display(prior_step_hist)
-    end
+    # @testset "plots for prior_step" begin
+    #     list_samples = []
+    #     for i in 1:50
+    #         push!(list_samples, first(first(prior_step(spl_2, model_2))))
+    #     end
+    #     prior_step_hist = histogram(list_samples)
+    #     display(prior_step_hist)
+    # end
     
     @testset "intermediate_step" begin
         @testset "model_1" begin
             current_state_1, accum_logweight_1 = prior_step(spl_1, model_1)
-            current_state_1, accum_logweight_1 = intermediate_step(1, spl_1, current_state_1, accum_logweight_1)
+            densitymodel = spl_1.state.densitymodels[1]
+            proposal_kernel = spl_1.alg.proposal_kernels[1]
+            current_state_1, accum_logweight_1 = intermediate_step(densitymodel, proposal_kernel, current_state_1, accum_logweight_1)
             @test length(current_state_1) == 2
         end 
 
         @testset "model_2" begin
             current_state_2, accum_logweight_2 = prior_step(spl_2, model_2)
-            current_state_2, accum_logweight_2 = intermediate_step(1, spl_2, current_state_2, accum_logweight_2)
+            densitymodel = spl_2.state.densitymodels[1]
+            proposal_kernel = spl_2.alg.proposal_kernels[1]
+            current_state_2, accum_logweight_2 = intermediate_step(densitymodel, proposal_kernel, current_state_2, accum_logweight_2)
             @test length(current_state_2) == 1
         end
     end
