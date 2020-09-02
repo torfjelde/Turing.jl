@@ -53,6 +53,7 @@ export  InferenceAlgorithm,
         CSMC,
         PG,
         Prior,
+        AIS,
         assume,
         dot_assume,
         observe,
@@ -540,6 +541,7 @@ include("AdvancedSMC.jl")
 include("gibbs.jl")
 include("../contrib/inference/sghmc.jl")
 include("emcee.jl")
+include("ais.jl")
 
 ################
 # Typing tools #
