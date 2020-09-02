@@ -5,19 +5,6 @@
 """ 
     AIS
 
-<<<<<<< HEAD
-Simple version of AIS (not fully general).
-
-Contains:
-- intermediate distributions that come from tempering according to a schedule
-- user-specified list of proposal Markov kernels
-- MCMC acceptance ratios enforce invariance of kernels wrt intermediate distributions
-"""
-struct AIS <: InferenceAlgorithm 
-    "array of intermediate MH kernels"
-    proposal_kernels # :: Array{<:AdvancedMH.RandomWalkProposal} TODO: fix
-    "array of inverse temperatures"
-=======
 Simple version of AIS (not fully general). MCMC acceptance ratios enforce invariance of kernels wrt intermediate distributions.
 
 # Fields
@@ -28,7 +15,6 @@ struct AIS <: InferenceAlgorithm
     "user-specified list of intermediate proposal Markov kernels"
     proposal_kernels # :: Array{<:AdvancedMH.RandomWalkProposal} TODO: fix
     "array of inverse temperatures defining intermediate tempered distributions"
->>>>>>> ais
     schedule # :: Array{<:AbstractFloat} TODO: fix
 end
 
@@ -42,13 +28,10 @@ DynamicPPL.getspace(::AIS) = ()
     AISState{V<:VarInfo, F<:AbstractFloat}
 
 State struct for AIS: contains information about intermediate distributions and proposal kernels that are needed for all particles.
-<<<<<<< HEAD
-=======
 
 # Fields
 
 $(TYPEDFIELDS)
->>>>>>> ais
 """
 mutable struct AISState{V<:VarInfo, F<:AbstractFloat} <: AbstractSamplerState
     "varinfo - reset and computed in step!"
@@ -85,13 +68,10 @@ end
 AIS-specific Transition struct. 
 
 Necessary because we care both about a particle's weight (accum_logweight) and the logjoint density evaluated at its final position (lp).
-<<<<<<< HEAD
-=======
 
 # Fields
 
 $(TYPEDFIELDS)
->>>>>>> ais
 """
 struct AISTransition{T, F<:AbstractFloat}
     "parameter"
@@ -157,32 +137,11 @@ function AbstractMCMC.step!(
     transition;
     kwargs...
 )
-<<<<<<< HEAD
-    # sample from prior and compute first term in accum_logweight
-=======
     # sample from prior and compute first term in `accum_logweight`
->>>>>>> ais
     current_state, accum_logweight = prior_step(spl, model)
 
     # for every intermediate distribution
     for j in 1:length(spl.alg.schedule)
-<<<<<<< HEAD
-        current_state, accum_logweight = intermediate_step(j, spl, current_state, accum_logweight)
-    end
-
-    # evaluate logjoint at current_state
-    lp = AdvancedMH.logdensity(last(spl.state.densitymodels), current_state)
-    
-    # add lp as final term to accum_logweight
-    accum_logweight += lp
-
-    # update spl to set the path VarInfo
-    spl.state.vi[spl] = current_state
-
-    # use path VarInfo to build instance of AISTransition
-    nt = NamedTuple()
-    theta = merge(DynamicPPL.tonamedtuple(spl.state.vi), NamedTuple())
-=======
         densitymodel = spl.state.densitymodels[j]
         proposal_kernel = spl.alg.proposal_kernels[j]
         current_state, accum_logweight = intermediate_step(densitymodel, proposal_kernel, current_state, accum_logweight)
@@ -190,7 +149,7 @@ function AbstractMCMC.step!(
 
     # evaluate logjoint at `current_state`
     lp = AdvancedMH.logdensity(last(spl.state.densitymodels), current_state)
-    
+
     # add `lp` as final term to `accum_logweight`
     accum_logweight += lp
 
@@ -199,20 +158,11 @@ function AbstractMCMC.step!(
 
     # use path VarInfo to build instance of AISTransition
     theta = DynamicPPL.tonamedtuple(spl.state.vi)
->>>>>>> ais
     return AISTransition(theta, lp, accum_logweight)
 end
 
 # B.4. sample_end! combines the individual accum_logweights to obtain final_logevidence, as in vanilla IS 
 
-<<<<<<< HEAD
-"""
-    AbstractMCMC.sample_end!( ::AbstractRNG, ::Model, spl::Sampler{<:AIS}, N::Integer, ts::Vector; kwargs...)
-
-Store estimate of the log evidence in the AISState attribute final_logevidence of spl.state.
-"""
-=======
->>>>>>> ais
 function AbstractMCMC.sample_end!(
     ::AbstractRNG,
     ::Model,
@@ -221,11 +171,7 @@ function AbstractMCMC.sample_end!(
     ts::Vector;
     kwargs...
 )
-<<<<<<< HEAD
-    # use AISTransition accum_logweight attribute to store estimate of log evidence
-=======
     # use `AISTransition` `accum_logweight` attribute to store estimate of log evidence
->>>>>>> ais
     spl.state.final_logevidence = logsumexp(map(x->x.accum_logweight, ts)) - log(N)
 end
 
@@ -271,12 +217,8 @@ end
 """
     gen_log_unnorm_tempered(logprior, logjoint, beta)
 
-<<<<<<< HEAD
-Return the log unnormalized tempered density function corresponding to model, ie a convex combination of the logprior and logjoint densities with parameter beta.
-=======
 Return the log unnormalized tempered density function corresponding to model
 ie a convex combination of the logprior and logjoint densities with parameter beta.
->>>>>>> ais
 """
 function gen_log_unnorm_tempered(logprior, logjoint, beta)
     function log_unnorm_tempered(z)
@@ -288,11 +230,7 @@ end
 """
     prior_step(spl, model)
 
-<<<<<<< HEAD
-Sample from prior to return inital values of current_state and accum_logweight.
-=======
 Sample from prior to return initial values of `current_state` and `accum_logweight`.
->>>>>>> ais
 """
 function prior_step(spl, model)
     # sample from prior
@@ -313,38 +251,22 @@ end
 """
     intermediate_step(j, spl, current_state, accum_logweight)
 
-<<<<<<< HEAD
-Perform the MCMC step corresponding to the j-th intermediate distribution, with the j-th MH proposal. Return updated current_state and accum_logweight.
-"""
-function intermediate_step(j, spl, current_state, accum_logweight)
-    # fetch proposal_kernel and densitymodel for this intermediate step
-    densitymodel = spl.state.densitymodels[j]
-    proposal_kernel = spl.alg.proposal_kernels[j]
-=======
 Perform the MCMC step corresponding to the j-th intermediate distribution, with the j-th MH proposal. Return updated 
 `current_state` and `accum_logweight`.
 """
 function intermediate_step(densitymodel, proposal_kernel, current_state, accum_logweight)
     # fetch `proposal_kernel` and `densitymodel` for this intermediate step
->>>>>>> ais
     
     # TODO: generalize - for now, proposal_kernel can only be a RandomWalkProposal
     proposed_state = current_state + rand(proposal_kernel)
 
     # compute difference between intermediate logdensity at proposed and current positions
-<<<<<<< HEAD
-    diff_logdensity = AdvancedMH.logdensity(densitymodel, proposed_state) - AdvancedMH.logdensity(densitymodel, current_state)
-
-    # calculate log acceptance probability.
-    logα =  diff_logdensity + AdvancedMH.q(proposal_kernel, current_state, proposed_state) - AdvancedMH.q(proposal_kernel, proposed_state, current_state)
-=======
     diff_logdensity = AdvancedMH.logdensity(densitymodel, proposed_state) -
                     AdvancedMH.logdensity(densitymodel, current_state)
 
     # calculate log acceptance probability.
     logα =  diff_logdensity + AdvancedMH.q(proposal_kernel, current_state, proposed_state) -
             AdvancedMH.q(proposal_kernel, proposed_state, current_state)
->>>>>>> ais
 
     # decide whether to accept or reject proposal
     if -Random.randexp() < logα
@@ -419,8 +341,4 @@ function DynamicPPL.dot_observe(
     vi,
 )
     return DynamicPPL.dot_observe(SampleFromPrior(), ds, value, vi)
-<<<<<<< HEAD
 end
-=======
-end
->>>>>>> ais
